@@ -9,7 +9,7 @@ pipeline {
 
         stage('Terraform Init') {
             steps {
-                dir('terraform') {
+                dir('ec2_terraform') {
                     sh 'terraform init'
                 }
             }
@@ -17,7 +17,7 @@ pipeline {
 
         stage('Terraform Plan') {
             steps {
-                dir('terraform') {
+                dir('ec2_terraform') {
                     sh 'terraform plan'
                 }
             }
@@ -25,7 +25,7 @@ pipeline {
 
         stage('Terraform Apply') {
             steps {
-                dir('terraform') {
+                dir('ec2_terraform') {
                     sh 'terraform apply -auto-approve'
                 }
             }
@@ -33,7 +33,7 @@ pipeline {
 
         stage('Output IP') {
             steps {
-                dir('terraform') {
+                dir('ec2_terraform') {
                     sh 'terraform output public_ip'
                 }
             }
