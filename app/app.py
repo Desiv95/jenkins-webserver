@@ -4,7 +4,7 @@ app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "Hello from Flask via Nginx 🚀"
+    return "Hello from Flask via Nginx "
 
 @app.route('/health')
 def health():
