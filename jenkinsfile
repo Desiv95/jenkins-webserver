@@ -30,7 +30,13 @@ pipeline {
                 }
             }
         }
-
+        stage('Terraform Destroy') {
+            steps {
+                dir('ec2_terraform') {
+                    sh 'terraform destroy -auto-approve'
+                }
+            }
+        }
         stage('Output IP') {
             steps {
                 dir('ec2_terraform') {
