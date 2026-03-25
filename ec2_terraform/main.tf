@@ -1,10 +1,40 @@
-provider "aws" {
-  region = var.region
+# ---------------- VPC ----------------
+resource "aws_vpc" "main" {
+  cidr_block = "10.0.0.0/16"
 }
 
-# Security Group
+# ---------------- Internet Gateway ----------------
+resource "aws_internet_gateway" "igw" {
+  vpc_id = aws_vpc.main.id
+}
+
+# ---------------- Public Subnet ----------------
+resource "aws_subnet" "public" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = "10.0.1.0/24"
+  map_public_ip_on_launch = true
+}
+
+# ---------------- Route Table ----------------
+resource "aws_route_table" "public_rt" {
+  vpc_id = aws_vpc.main.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.igw.id
+  }
+}
+
+# ---------------- Route Table Association ----------------
+resource "aws_route_table_association" "public_assoc" {
+  subnet_id      = aws_subnet.public.id
+  route_table_id = aws_route_table.public_rt.id
+}
+
+# ---------------- Security Group ----------------
 resource "aws_security_group" "web_sg" {
-  name = "nginx-flask-sg"
+  name   = "nginx-flask-sg"
+  vpc_id = aws_vpc.main.id
 
   ingress {
     description = "HTTP"
@@ -30,35 +60,27 @@ resource "aws_security_group" "web_sg" {
   }
 }
 
-# EC2 Instance (Ubuntu)
+# ---------------- EC2 Instance ----------------
 resource "aws_instance" "web" {
-  ami           = "ami-05d2d839d4f73aafb"
-  instance_type = var.instance_type
-  key_name      = var.key_name
-
-  vpc_security_group_ids = [aws_security_group.web_sg.id]
-
-  user_data_replace_on_change = true
+  ami                         = "ami-05d2d839d4f73aafb"
+  instance_type               = var.instance_type
+  key_name                    = var.key_name
+  subnet_id                   = aws_subnet.public.id
+  vpc_security_group_ids      = [aws_security_group.web_sg.id]
+  associate_public_ip_address = true
 
   user_data = <<-EOF
 #!/bin/bash
+set -ex
+exec > /var/log/user-data.log 2>&1
 
-# Avoid interactive prompts
-export DEBIAN_FRONTEND=noninteractive
-
-# Update system
 apt-get update -y
-
-# Install packages
 apt-get install -y python3-pip nginx
 
-# Install Python dependencies
 pip3 install flask gunicorn
 
-# Move to ubuntu home
 cd /home/ubuntu
 
-# Create Flask app
 cat <<EOT > app.py
 from flask import Flask
 app = Flask(__name__)
@@ -68,13 +90,10 @@ def home():
     return "Hello from Flask via Nginx 🚀"
 EOT
 
-# Change ownership (important)
 chown ubuntu:ubuntu /home/ubuntu/app.py
 
-# Run Gunicorn as ubuntu user
-sudo -u ubuntu nohup gunicorn -w 4 -b 127.0.0.1:5000 app:app > /home/ubuntu/app.log 2>&1 &
+sudo -u ubuntu bash -c "cd /home/ubuntu && nohup gunicorn -w 2 -b 127.0.0.1:5000 app:app > app.log 2>&1 &"
 
-# Configure Nginx
 cat <<EOT > /etc/nginx/sites-available/default
 server {
     listen 80;
@@ -87,10 +106,8 @@ server {
 }
 EOT
 
-# Restart Nginx
 systemctl restart nginx
 systemctl enable nginx
-
 EOF
 
   tags = {
