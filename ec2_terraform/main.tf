@@ -87,7 +87,7 @@ app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "Hello from Flask via Nginx 🚀"
+    return "Hello from Flask via Nginx "
 EOT
 
 chown ubuntu:ubuntu /home/ubuntu/app.py
