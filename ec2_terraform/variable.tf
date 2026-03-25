@@ -7,5 +7,6 @@ variable "instance_type" {
 }
 
 variable "key_name" {
-  default = "jenkins-server-key"  
+  description = "EC2 Key Pair name"
+  default     = "jenkins-server-key"
 }
