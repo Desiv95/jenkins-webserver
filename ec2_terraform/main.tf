@@ -76,25 +76,25 @@ exec >> (tee /var/log/user-data.log | logger -t user-data -s 2> /dev/console) 2>
 set -ex
 
 apt-get update -y
-apt-get install -y python3 python3-pip nginx
+apt-get install -y python3-pip nginx
 
 pip3 install flask gunicorn
 
 
-cat <<EOF > /home/ubuntu/app.py
+cat <<EOF_APP > /home/ubuntu/app.py
 from flask import Flask
 app = Flask(__name__)
 
 @app.route('/')
 def hello():
-    return "Hello from Flask via Nginx "
+    return "<h1>Hello from Flask via Nginx</h1> "
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=5000)
-EOF
+    app.run(host='127.0.0.1', port=5000)
+EOF_APP
 
 chown ubuntu:ubuntu /home/ubuntu/app.py
 
-cat <<EOF > /etc/nginx/sites-available/default
+cat <<EOF_NGINX > /etc/nginx/sites-available/default
 server {
     listen 80;
 
@@ -105,13 +105,14 @@ server {
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
     }
 }
-EOF
+EOF_NGINX
 
 systemctl restart nginx
 systemctl enable nginx
 
 cd /home/ubuntu
 su - ubuntu -c "gunicorn --bind 127.0.0.1:5000 app:app --daemon"
+EOF
 
   tags = {
     Name = "Nginx-Flask-Server"
