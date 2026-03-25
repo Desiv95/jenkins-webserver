@@ -72,7 +72,7 @@ resource "aws_instance" "web" {
 
   user_data = <<-EOF
 #!/bin/bash
-exec >> (tee /var/log/user-data.log | logger -t user-data -s 2> /dev/console) 2>&1
+exec > /var/log/user-data.log 2>&1
 set -ex
 
 apt-get update -y
@@ -80,20 +80,44 @@ apt-get install -y python3-pip nginx
 
 pip3 install flask gunicorn
 
-
+# Create Flask app
 cat <<EOF_APP > /home/ubuntu/app.py
 from flask import Flask
 app = Flask(__name__)
 
 @app.route('/')
 def hello():
-    return "<h1>Hello from Flask via Nginx</h1> "
+    return "<h1>Hello from Flask via Nginx</h1>"
+
 if __name__ == "__main__":
     app.run(host='127.0.0.1', port=5000)
 EOF_APP
 
 chown ubuntu:ubuntu /home/ubuntu/app.py
 
+# Create systemd service for Gunicorn (BEST PRACTICE)
+cat <<EOF_SERVICE > /etc/systemd/system/gunicorn.service
+[Unit]
+Description=Gunicorn Flask App
+After=network.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/home/ubuntu
+ExecStart=/usr/local/bin/gunicorn --bind 127.0.0.1:5000 app:app
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOF_SERVICE
+
+# Start Gunicorn properly
+systemctl daemon-reexec
+systemctl daemon-reload
+systemctl start gunicorn
+systemctl enable gunicorn
+
+# Configure Nginx
 cat <<EOF_NGINX > /etc/nginx/sites-available/default
 server {
     listen 80;
@@ -109,10 +133,6 @@ EOF_NGINX
 
 systemctl restart nginx
 systemctl enable nginx
-
-cd /home/ubuntu
-su - ubuntu -c "gunicorn --bind 127.0.0.1:5000 app:app --daemon"
-EOF
 
   tags = {
     Name = "Nginx-Flask-Server"
