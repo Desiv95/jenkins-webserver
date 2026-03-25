@@ -71,44 +71,46 @@ resource "aws_instance" "web" {
 
   user_data = <<-EOF
 #!/bin/bash
+exec >> (tee /var/log/user-data.log | logger -t user-data -s 2> /dev/console) 2>&1
 set -ex
-exec > /var/log/user-data.log 2>&1
 
 apt-get update -y
-apt-get install -y python3-pip nginx
+apt-get install -y python3 python3-pip nginx
 
 pip3 install flask gunicorn
 
-cd /home/ubuntu
 
-cat <<EOT > app.py
+cat <<EOF > /home/ubuntu/app.py
 from flask import Flask
 app = Flask(__name__)
 
 @app.route('/')
-def home():
+def hello():
     return "Hello from Flask via Nginx "
-EOT
+if __name__ == "__main__":
+    app.run(host='0.0.0.0', port=5000)
+EOF
 
 chown ubuntu:ubuntu /home/ubuntu/app.py
 
-sudo -u ubuntu bash -c "cd /home/ubuntu && nohup gunicorn -w 2 -b 127.0.0.1:5000 app:app > app.log 2>&1 &"
-
-cat <<EOT > /etc/nginx/sites-available/default
+cat <<EOF > /etc/nginx/sites-available/default
 server {
     listen 80;
 
     location / {
         proxy_pass http://127.0.0.1:5000;
-        proxy_set_header Host \\$host;
-        proxy_set_header X-Real-IP \\$remote_addr;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
     }
 }
-EOT
+EOF
 
 systemctl restart nginx
 systemctl enable nginx
-EOF
+
+cd /home/ubuntu
+su - ubuntu -c "gunicorn --bind 127.0.0.1:5000 app:app --daemon"
 
   tags = {
     Name = "Nginx-Flask-Server"
