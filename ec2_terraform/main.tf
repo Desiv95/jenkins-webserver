@@ -142,6 +142,8 @@ EOF_NGINX
 systemctl restart nginx
 systemctl enable nginx
 
+EOF
+
   tags = {
     Name = "Nginx-Flask-Server"
   }
