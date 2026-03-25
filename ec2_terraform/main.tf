@@ -70,7 +70,7 @@ resource "aws_instance" "web" {
   vpc_security_group_ids      = [aws_security_group.web_sg.id]
   associate_public_ip_address = true
 
-  user_data = <<EOF
+  user_data = <<-EOF
 #!/bin/bash
 exec > /var/log/user-data.log 2>&1
 set -ex
